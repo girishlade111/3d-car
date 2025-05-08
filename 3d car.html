@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Car Racing Game</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/DRACOLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/libs/stats.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.1/dist/nipplejs.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+        }
+        #game-container {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+        #loading-screen {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+        #loading-progress {
+            width: 70%;
+            height: 20px;
+            background-color: #222;
+            border-radius: 10px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        #loading-bar {
+            height: 100%;
+            width: 0%;
+            background-color: #0f0;
+            transition: width 0.3s;
+        }
+        #game-ui {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #speedometer {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 18px;
+        }
+        #start-screen {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+        #start-button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 20px 2px;
+            cursor: pointer;
+            border-radius: 10px;
+            pointer-events: auto;
+        }
+        #settings-button {
+            background-color: #3498db;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            pointer-events: auto;
+        }
+        #settings-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 500px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 60;
+            display: none;
+            pointer-events: auto;
+        }
+        .settings-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .close-settings {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+        #joystick-zone {
+            width: 150px;
+            height: 150px;
+            position: relative;
+            pointer-events: auto;
+        }
+        #buttons-container {
+            display: flex;
+            gap: 20px;
+            pointer-events: auto;
+        }
+        .control-button {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: black;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        .control-button:active, .control-button.active {
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+        #accelerate-btn {
+            background-color: rgba(76, 175, 80, 0.6);
+        }
+        #brake-btn {
+            background-color: rgba(244, 67, 54, 0.6);
+        }
+        #performance-indicator {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 12px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        .slider {
+            -webkit-appearance: none;
+            width: 60%;
+            height: 10px;
+            border-radius: 5px;  
+            background: #d3d3d3;
+            outline: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%; 
+            background: #4CAF50;
+            cursor: pointer;
+        }
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider-switch {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider-switch:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider-switch {
+            background-color: #2196F3;
+        }
+        input:checked + .slider-switch:before {
+            transform: translateX(26px);
+        }
+        @media (max-width: 768px) {
+            #controls {
+                padding: 0 10px;
+            }
+            #joystick-zone {
+                width: 120px;
+                height: 120px;
+            }
+            .control-button {
+                width: 60px;
+                height: 60px;
+            }
+        }
+        @media (max-height: 500px) and (orientation: landscape) {
+            #controls {
+                bottom: 10px;
+            }
+            #joystick-zone {
+                width: 100px;
+                height: 100px;
+            }
+            .control-button {
+                width: 50px;
+                height: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <h1 class="text-3xl font-bold mb-4">3D Car Racing Game</h1>
+        <p class="mb-6">Loading game assets...</p>
+        <div id="loading-progress">
+            <div id="loading-bar"></div>
+        </div>
+    </div>
+
+    <div id="start-screen">
+        <h1 class="text-4xl font-bold mb-6">3D Car Racing Game</h1>
+        <p class="text-lg mb-8">Race in an open world environment</p>
+        <button id="start-button">START GAME</button>
+        <button id="settings-button" class="mt-4">SETTINGS</button>
+    </div>
+
+    <div id="settings-panel">
+        <span class="close-settings">&times;</span>
+        <h2 class="text-xl font-bold mb-4">Game Settings</h2>
+        <div class="settings-row">
+            <label>Graphics Quality:</label>
+            <select id="quality-setting" class="bg-gray-800 p-2 rounded">
+                <option value="low">Low (Best Performance)</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High (Best Quality)</option>
+            </select>
+        </div>
+        <div class="settings-row">
+            <label>Render Distance:</label>
+            <input type="range" min="100" max="1000" value="500" class="slider" id="render-distance">
+        </div>
+        <div class="settings-row">
+            <label>Sound Effects:</label>
+            <label class="toggle-switch">
+                <input type="checkbox" id="sound-toggle" checked>
+                <span class="slider-switch"></span>
+            </label>
+        </div>
+        <div class="settings-row">
+            <label>Control Sensitivity:</label>
+            <input type="range" min="1" max="10" value="5" class="slider" id="control-sensitivity">
+        </div>
+        <div class="settings-row">
+            <label>Show FPS Counter:</label>
+            <label class="toggle-switch">
+                <input type="checkbox" id="fps-toggle">
+                <span class="slider-switch"></span>
+            </label>
+        </div>
+        <button id="save-settings" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded mt-4">
+            Save Settings
+        </button>
+    </div>
+
+    <div id="game-container"></div>
+
+    <div id="game-ui">
+        <div id="speedometer">
+            <div id="speed">0 km/h</div>
+        </div>
+        <div id="performance-indicator"></div>
+        <div id="controls">
+            <div id="joystick-zone"></div>
+            <div id="buttons-container">
+                <div id="brake-btn" class="control-button">BRAKE</div>
+                <div id="accelerate-btn" class="control-button">GAS</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game variables
+        let scene, camera, renderer, car, stats;
+        let terrain, road, skybox;
+        let clock = new THREE.Clock();
+        let carSpeed = 0;
+        let maxSpeed = 50;
+        let acceleration = 0.2;
+        let deceleration = 0.1;
+        let brakingForce = 0.4;
+        let steeringAngle = 0;
+        let maxSteeringAngle = 0.05;
+        let carRotation = 0;
+        let isAccelerating = false;
+        let isBraking = false;
+        let isTurningLeft = false;
+        let isTurningRight = false;
+        let isMobile = false;
+        let joystick;
+        let frameCount = 0;
+        let lastTime = performance.now();
+        let fps = 0;
+        let terrainSize = 2000;
+        let isGameStarted = false;
+        
+        // Game settings
+        let gameSettings = {
+            graphicsQuality: 'medium',
+            renderDistance: 500,
+            soundEnabled: true,
+            controlSensitivity: 5,
+            showFPS: false
+        };
+
+        // Check if device is mobile
+        function checkMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 800;
+        }
+
+        // Initialize the game
+        function init() {
+            isMobile = checkMobile();
+            setupEventListeners();
+            setupSettings();
+            
+            // Set the loading progress for initialization
+            updateLoadingProgress(10);
+            
+            // Create the scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0xcccccc, 0.002);
+            
+            // Create the camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2, -5);
+            
+            // Create the renderer
+            renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x87CEEB);
+            renderer.shadowMap.enabled = gameSettings.graphicsQuality !== 'low';
+            document.getElementById('game-container').appendChild(renderer.domElement);
+            
+            // Add stats if enabled
+            if (gameSettings.showFPS) {
+                stats = new Stats();
+                document.body.appendChild(stats.dom);
+            }
+            
+            updateLoadingProgress(20);
+            
+            // Create lighting
+            createLighting();
+            
+            // Create the world
+            createWorld();
+            
+            // Create car
+            createCar();
+            
+            // Create skybox
+            createSkybox();
+            
+            updateLoadingProgress(80);
+            
+            // Set up controls
+            if (isMobile) {
+                setupMobileControls();
+            }
+            
+            // Window resize handler
+            window.addEventListener('resize', onWindowResize, false);
+            
+            updateLoadingProgress(100);
+            
+            // Hide loading screen after a delay
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.display = 'none';
+            }, 1000);
+        }
+
+        // Update loading progress bar
+        function updateLoadingProgress(progress) {
+            document.getElementById('loading-bar').style.width = progress + '%';
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('start-button').addEventListener('click', startGame);
+            document.getElementById('settings-button').addEventListener('click', openSettings);
+            document.getElementById('save-settings').addEventListener('click', saveSettings);
+            document.querySelector('.close-settings').addEventListener('click', closeSettings);
+            
+            // Keyboard controls
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            
+            // Mobile button controls
+            document.getElementById('accelerate-btn').addEventListener('touchstart', () => { isAccelerating = true; });
+            document.getElementById('accelerate-btn').addEventListener('touchend', () => { isAccelerating = false; });
+            document.getElementById('brake-btn').addEventListener('touchstart', () => { isBraking = true; });
+            document.getElementById('brake-btn').addEventListener('touchend', () => { isBraking = false; });
+            
+            // For testing mobile controls on desktop
+            document.getElementById('accelerate-btn').addEventListener('mousedown', () => { isAccelerating = true; });
+            document.getElementById('accelerate-btn').addEventListener('mouseup', () => { isAccelerating = false; });
+            document.getElementById('brake-btn').addEventListener('mousedown', () => { isBraking = true; });
+            document.getElementById('brake-btn').addEventListener('mouseup', () => { isBraking = false; });
+        }
+
+        // Setup settings panel
+        function setupSettings() {
+            document.getElementById('quality-setting').value = gameSettings.graphicsQuality;
+            document.getElementById('render-distance').value = gameSettings.renderDistance;
+            document.getElementById('sound-toggle').checked = gameSettings.soundEnabled;
+            document.getElementById('control-sensitivity').value = gameSettings.controlSensitivity;
+            document.getElementById('fps-toggle').checked = gameSettings.showFPS;
+        }
+
+        // Open settings panel
+        function openSettings() {
+            document.getElementById('settings-panel').style.display = 'block';
+        }
+
+        // Close settings panel
+        function closeSettings() {
+            document.getElementById('settings-panel').style.display = 'none';
+        }
+
+        // Save settings
+        function saveSettings() {
+            gameSettings.graphicsQuality = document.getElementById('quality-setting').value;
+            gameSettings.renderDistance = parseInt(document.getElementById('render-distance').value);
+            gameSettings.soundEnabled = document.getElementById('sound-toggle').checked;
+            gameSettings.controlSensitivity = parseInt(document.getElementById('control-sensitivity').value);
+            gameSettings.showFPS = document.getElementById('fps-toggle').checked;
+            
+            // Apply settings
+            applySettings();
+            
+            // Close panel
+            closeSettings();
+        }
+
+        // Apply saved settings
+        function applySettings() {
+            // Adjust render quality
+            renderer.shadowMap.enabled = gameSettings.graphicsQuality !== 'low';
+            
+            // Adjust fog distance based on render distance
+            scene.fog = new THREE.FogExp2(0xcccccc, 1000 / (gameSettings.renderDistance * gameSettings.renderDistance));
+            
+            // Update max steering angle based on sensitivity
+            maxSteeringAngle = 0.03 + (gameSettings.controlSensitivity / 100);
+            
+            // Show or hide FPS counter
+            if (gameSettings.showFPS && !stats) {
+                stats = new Stats();
+                document.body.appendChild(stats.dom);
+            } else if (!gameSettings.showFPS && stats) {
+                document.body.removeChild(stats.dom);
+                stats = null;
+            }
+        }
+
+        // Start the game
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            isGameStarted = true;
+            animate();
+        }
+
+        // Create lighting
+        function createLighting() {
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0x666666);
+            scene.add(ambientLight);
+            
+            // Directional light (sun)
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1);
+            sunLight.position.set(100, 100, 50);
+            sunLight.castShadow = gameSettings.graphicsQuality !== 'low';
+            
+            if (sunLight.castShadow) {
+                sunLight.shadow.mapSize.width = 1024;
+                sunLight.shadow.mapSize.height = 1024;
+                sunLight.shadow.camera.near = 10;
+                sunLight.shadow.camera.far = 200;
+                sunLight.shadow.camera.left = -100;
+                sunLight.shadow.camera.right = 100;
+                sunLight.shadow.camera.top = 100;
+                sunLight.shadow.camera.bottom = -100;
+            }
+            
+            scene.add(sunLight);
+        }
+
+        // Create world
+        function createWorld() {
+            // Create terrain
+            const terrainGeometry = new THREE.PlaneGeometry(terrainSize, terrainSize, 64, 64);
+            
+            // Create terrain material
+            const terrainTexture = new THREE.TextureLoader().load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/textures/terrain/grasslight-big.jpg');
+            terrainTexture.wrapS = terrainTexture.wrapT = THREE.RepeatWrapping;
+            terrainTexture.repeat.set(25, 25);
+            
+            const terrainMaterial = new THREE.MeshStandardMaterial({
+                map: terrainTexture,
+                color: 0x5a9452,
+                roughness: 1,
+                metalness: 0
+            });
+            
+            // Create terrain mesh
+            terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
+            terrain.rotation.x = -Math.PI / 2;
+            terrain.receiveShadow = gameSettings.graphicsQuality !== 'low';
+            scene.add(terrain);
+            
+            // Create road
+            createRoad();
+            
+            // Add some hills if not on low quality
+            if (gameSettings.graphicsQuality !== 'low') {
+                createHills();
+            }
+            
+            // Add trees and rocks
+            addEnvironmentObjects();
+        }
+
+        // Create road
+        function createRoad() {
+            const roadWidth = 15;
+            const roadSegments = [
+                { start: new THREE.Vector3(-terrainSize/4, 0.1, -terrainSize/4), end: new THREE.Vector3(terrainSize/4, 0.1, -terrainSize/4) },
+                { start: new THREE.Vector3(terrainSize/4, 0.1, -terrainSize/4), end: new THREE.Vector3(terrainSize/4, 0.1, terrainSize/4) },
+                { start: new THREE.Vector3(terrainSize/4, 0.1, terrainSize/4), end: new THREE.Vector3(-terrainSize/4, 0.1, terrainSize/4) },
+                { start: new THREE.Vector3(-terrainSize/4, 0.1, terrainSize/4), end: new THREE.Vector3(-terrainSize/4, 0.1, -terrainSize/4) }
+            ];
+            
+            // Road texture
+            const roadTexture = new THREE.TextureLoader().load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/textures/terrain/grasslight-big-nm.jpg');
+            roadTexture.wrapS = roadTexture.wrapT = THREE.RepeatWrapping;
+            roadTexture.repeat.set(1, 30);
+            
+            const roadMaterial = new THREE.MeshStandardMaterial({
+                map: roadTexture,
+                color: 0x555555,
+                roughness: 0.4,
+                metalness: 0.5
+            });
+            
+            roadSegments.forEach(segment => {
+                const roadLength = segment.start.distanceTo(segment.end);
+                const direction = new THREE.Vector3().subVectors(segment.end, segment.start).normalize();
+                const roadGeometry = new THREE.PlaneGeometry(roadWidth, roadLength);
+                
+                const road = new THREE.Mesh(roadGeometry, roadMaterial);
+                road.position.copy(segment.start).add(direction.multiplyScalar(roadLength / 2));
+                
+                // Calculate rotation to align with the direction
+                road.rotation.x = -Math.PI / 2;
+                
+                if (direction.x !== 0) {
+                    road.rotation.z = Math.PI / 2;
+                }
+                
+                road.receiveShadow = gameSettings.graphicsQuality !== 'low';
+                scene.add(road);
+            });
+        }
+
+        // Create hills
+        function createHills() {
+            const hillGeometry = new THREE.PlaneGeometry(terrainSize, terrainSize, 64, 64);
+            const positions = hillGeometry.attributes.position.array;
+            
+            for (let i = 0; i < positions.length; i += 3) {
+                const x = positions[i];
+                const z = positions[i + 2];
+                
+                // Generate some random heights based on position
+                const height = Math.sin(x / 50) * 10 + Math.cos(z / 60) * 10;
+                
+                // Flatten the area around the road
+                const distanceFromCenter = Math.sqrt(x * x + z * z);
+                if (distanceFromCenter > 70) {
+                    positions[i + 1] = height;
+                }
+            }
+            
+            hillGeometry.computeVertexNormals();
+            
+            const hillMaterial = new THREE.MeshStandardMaterial({
+                color: 0x5a9452,
+                roughness: 1,
+                metalness: 0,
+                wireframe: gameSettings.graphicsQuality === 'low'
+            });
+            
+            const hills = new THREE.Mesh(hillGeometry, hillMaterial);
+            hills.rotation.x = -Math.PI / 2;
+            hills.position.y = -5;
+            scene.add(hills);
+        }
+
+        // Add environment objects
+        function addEnvironmentObjects() {
+            // Number of objects depends on quality settings
+            const objectCount = gameSettings.graphicsQuality === 'low' ? 10 : 
+                               gameSettings.graphicsQuality === 'medium' ? 30 : 50;
+            
+            // Create simple trees
+            for (let i = 0; i < objectCount; i++) {
+                const x = Math.random() * terrainSize - terrainSize / 2;
+                const z = Math.random() * terrainSize - terrainSize / 2;
+                
+                // Don't place trees on the road
+                if (Math.abs(x) < 100 && Math.abs(z) < 100) continue;
+                
+                // Tree trunk
+                const trunkGeometry = new THREE.CylinderGeometry(1, 1.5, 5, 8);
+                const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+                const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                trunk.position.set(x, 2.5, z);
+                trunk.castShadow = gameSettings.graphicsQuality === 'high';
+                scene.add(trunk);
+                
+                // Tree top
+                const topGeometry = new THREE.ConeGeometry(4, 8, 8);
+                const topMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+                const top = new THREE.Mesh(topGeometry, topMaterial);
+                top.position.set(x, 8, z);
+                top.castShadow = gameSettings.graphicsQuality === 'high';
+                scene.add(top);
+            }
+            
+            // Add some rocks
+            for (let i = 0; i < objectCount / 2; i++) {
+                const x = Math.random() * terrainSize - terrainSize / 2;
+                const z = Math.random() * terrainSize - terrainSize / 2;
+                
+                // Don't place rocks on the road
+                if (Math.abs(x) < 100 && Math.abs(z) < 100) continue;
+                
+                const rockGeometry = new THREE.DodecahedronGeometry(2 + Math.random() * 3, 0);
+                const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 });
+                const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                rock.position.set(x, 1, z);
+                rock.rotation.set(Math.random(), Math.random(), Math.random());
+                rock.castShadow = gameSettings.graphicsQuality === 'high';
+                scene.add(rock);
+            }
+        }
+
+        // Create car
+        function createCar() {
+            // Create a simple car model
+            const carGroup = new THREE.Group();
+            
+            // Car body
+            const bodyGeometry = new THREE.BoxGeometry(2, 1, 4);
+            const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.5;
+            body.castShadow = gameSettings.graphicsQuality !== 'low';
+            carGroup.add(body);
+            
+            // Car top
+            const topGeometry = new THREE.BoxGeometry(1.5, 0.7, 2);
+            const topMaterial = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+            const top = new THREE.Mesh(topGeometry, topMaterial);
+            top.position.y = 1.35;
+            top.position.z = -0.5;
+            top.castShadow = gameSettings.graphicsQuality !== 'low';
+            carGroup.add(top);
+            
+            // Wheels
+            const wheelGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.4, 16);
+            wheelGeometry.rotateX(Math.PI / 2);
+            const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            
+            const wheelPositions = [
+                { x: -1.1, y: 0, z: -1.2 },
+                { x: 1.1, y: 0, z: -1.2 },
+                { x: -1.1, y: 0, z: 1.2 },
+                { x: 1.1, y: 0, z: 1.2 }
+            ];
+            
+            wheelPositions.forEach(pos => {
+                const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+                wheel.position.set(pos.x, pos.y, pos.z);
+                wheel.castShadow = gameSettings.graphicsQuality !== 'low';
+                carGroup.add(wheel);
+            });
+            
+            // Lights
+            const lightGeometry = new THREE.BoxGeometry(0.5, 0.2, 0.1);
+            const headlightMaterial = new THREE.MeshStandardMaterial({ color: 0xffffcc });
+            const taillightMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+            
+            // Headlights
+            const leftHeadlight = new THREE.Mesh(lightGeometry, headlightMaterial);
+            leftHeadlight.position.set(-0.6, 0.5, 2);
+            carGroup.add(leftHeadlight);
+            
+            const rightHeadlight = new THREE.Mesh(lightGeometry, headlightMaterial);
+            rightHeadlight.position.set(0.6, 0.5, 2);
+            carGroup.add(rightHeadlight);
+            
+            // Taillights
+            const leftTaillight = new THREE.Mesh(lightGeometry, taillightMaterial);
+            leftTaillight.position.set(-0.6, 0.5, -2);
+            carGroup.add(leftTaillight);
+            
+            const rightTaillight = new THREE.Mesh(lightGeometry, taillightMaterial);
+            rightTaillight.position.set(0.6, 0.5, -2);
+            carGroup.add(rightTaillight);
+            
+            // Add car to scene
+            carGroup.position.y = 0.5;
+            scene.add(carGroup);
+            car = carGroup;
+            
+            // Position camera relative to car
+            updateCameraPosition();
+        }
+
+        // Create skybox
+        function createSkybox() {
+            const skyboxGeometry = new THREE.BoxGeometry(1000, 1000, 1000);
+            const skyboxMaterials = [
+                new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide }), // right
+                new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide }), // left
+                new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide }), // top
+                new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide }), // bottom
+                new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide }), // front
+                new THREE.MeshBasicMaterial({ color: 0x87CEEB, side: THREE.BackSide })  // back
+            ];
+            
+            skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterials);
+            scene.add(skybox);
+        }
+
+        // Setup mobile controls
+        function setupMobileControls() {
+            const joystickZone = document.getElementById('joystick-zone');
+            
+            joystick = nipplejs.create({
+                zone: joystickZone,
+                mode: 'static',
+                position: { left: '50%', top: '50%' },
+                color: 'rgba(255, 255, 255, 0.5)',
+                size: 120,
+                restOpacity: 0.8
+            });
+            
+            joystick.on('move', (event, data) => {
+                const angle = data.angle.radian;
+                const force = Math.min(data.force, 2) / 2; // Normalize force to 0-1
+                
+                // Handle steering based on joystick position
+                if ((angle > 0 && angle < Math.PI/2) || (angle > 3*Math.PI/2 && angle < 2*Math.PI)) {
+                    // Right
+                    isTurningRight = true;
+                    isTurningLeft = false;
+                    steeringAngle = maxSteeringAngle * force;
+                } else if (angle > Math.PI/2 && angle < 3*Math.PI/2) {
+                    // Left
+                    isTurningLeft = true;
+                    isTurningRight = false;
+                    steeringAngle = -maxSteeringAngle * force;
+                }
+            });
+            
+            joystick.on('end', () => {
+                isTurningLeft = false;
+                isTurningRight = false;
+                steeringAngle = 0;
+            });
+        }
+
+        // Keyboard event handlers
+        function onKeyDown(event) {
+            switch (event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    isAccelerating = true;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    isBraking = true;
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    isTurningLeft = true;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    isTurningRight = true;
+                    break;
+            }
+        }
+
+        function onKeyUp(event) {
+            switch (event.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    isAccelerating = false;
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    isBraking = false;
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    isTurningLeft = false;
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    isTurningRight = false;
+                    break;
+            }
+        }
+
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            // Check if device orientation changed
+            isMobile = checkMobile();
+        }
+
+        // Update car movement
+        function updateCar(deltaTime) {
+            // Update speed
+            if (isAccelerating) {
+                carSpeed += acceleration * deltaTime * 60;
+            } else if (carSpeed > 0) {
+                carSpeed -= deceleration * deltaTime * 60;
+            }
+            
+            if (isBraking) {
+                carSpeed -= brakingForce * deltaTime * 60;
+            }
+            
+            // Clamp speed
+            carSpeed = Math.max(-maxSpeed / 2, Math.min(carSpeed, maxSpeed));
+            
+            // Handle turning
+            if (isTurningLeft) {
+                steeringAngle = -maxSteeringAngle;
+            } else if (isTurningRight) {
+                steeringAngle = maxSteeringAngle;
+            } else {
+                steeringAngle = 0;
+            }
+            
+            // Only apply steering if the car is moving
+            if (Math.abs(carSpeed) > 0.1) {
+                carRotation += steeringAngle * Math.sign(carSpeed) * deltaTime * 60;
+            }
+            
+            // Apply rotation and movement
+            car.rotation.y = carRotation;
+            
+            const moveX = Math.sin(carRotation) * carSpeed * deltaTime;
+            const moveZ = Math.cos(carRotation) * carSpeed * deltaTime;
+            
+            car.position.x += moveX;
+            car.position.z += moveZ;
+            
+            // Keep car within terrain bounds
+            const halfSize = terrainSize / 2 - 10;
+            car.position.x = Math.max(-halfSize, Math.min(halfSize, car.position.x));
+            car.position.z = Math.max(-halfSize, Math.min(halfSize, car.position.z));
+            
+            // Update camera position
+            updateCameraPosition();
+            
+            // Update speedometer
+            document.getElementById('speed').textContent = Math.abs(Math.round(carSpeed * 2)) + ' km/h';
+        }
+
+        // Update camera position to follow car
+        function updateCameraPosition() {
+            const cameraHeight = 3;
+            const cameraDistance = 7;
+            
+            // Calculate camera position behind the car
+            const offsetX = Math.sin(carRotation) * -cameraDistance;
+            const offsetZ = Math.cos(carRotation) * -cameraDistance;
+            
+            // Smoothly move camera
+            camera.position.x = car.position.x + offsetX;
+            camera.position.y = car.position.y + cameraHeight;
+            camera.position.z = car.position.z + offsetZ;
+            
+            // Look at the car
+            camera.lookAt(new THREE.Vector3(
+                car.position.x,
+                car.position.y + 1,
+                car.position.z
+            ));
+        }
+
+        // Calculate FPS
+        function calculateFPS() {
+            frameCount++;
+            
+            const now = performance.now();
+            const elapsed = now - lastTime;
+            
+            if (elapsed >= 1000) {
+                fps = Math.round((frameCount * 1000) / elapsed);
+                frameCount = 0;
+                lastTime = now;
+                
+                document.getElementById('performance-indicator').textContent = `FPS: ${fps}`;
+            }
+        }
+
+        // Animation loop
+        function animate() {
+            if (!isGameStarted) return;
+            
+            requestAnimationFrame(animate);
+            
+            const deltaTime = clock.getDelta();
+            
+            // Update car
+            updateCar(deltaTime);
+            
+            // Update stats if enabled
+            if (stats) stats.update();
+            
+            // Calculate and display FPS
+            if (gameSettings.showFPS) {
+                calculateFPS();
+            }
+            
+            // Render the scene
+            renderer.render(scene, camera);
+        }
+
+        // Initialize the game when the page loads
+        window.onload = init;
+    </script>
+</body>
+</html>
